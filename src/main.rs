@@ -1,9 +1,12 @@
 #![allow(unused_imports)]
 
+mod resp;
+
 use std::io::{Read, Write};
 use tokio::net::{TcpListener, TcpStream};
 use anyhow::Result;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::resp::Value;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,13 +34,25 @@ async fn main() -> Result<()> {
 }
 
 async fn handle_conn(mut stream:TcpStream){
+    let mut handler = resp::RespHandler::new(stream);
 
-    let mut buffer = [0; 512];
-    loop {
-        let bytes_read = stream.read(&mut buffer).await.unwrap();
-        if bytes_read == 0 {
-            break;
-        }
-        stream.write(b"+PONG\r\n").await.unwrap();
+    loop{
+        let value = handler.read_value().await.unwrap();
+        // let response = if let Some(v) = value{
+        //     //TODO handle responses
+        // }else{
+        //     break;
+        // };
+
+        handler.write_value(value.unwrap()).await.unwrap();
+
     }
+    // let mut buffer = [0; 512];
+    // loop {
+    //     let bytes_read = stream.read(&mut buffer).await.unwrap();
+    //     if bytes_read == 0 {
+    //         break;
+    //     }
+    //     stream.write(format!("{:?}",buffer).as_bytes()).await.unwrap();
+    // }
 }
