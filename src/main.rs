@@ -20,10 +20,10 @@ async fn main() -> Result<()> {
     loop {
         let stream = listener.accept().await;
         match stream {
-            Ok((mut stream,_)) => {
+            Ok((stream, _)) => {
                 tokio::spawn(async move {
                     println!("New Connection!");
-                    handle_conn(stream).await;
+                    handle_conn(stream).await.unwrap();
                 });
             }
             Err(e) => {
@@ -33,19 +33,18 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn handle_conn(mut stream:TcpStream){
+async fn handle_conn(stream: TcpStream) -> Result<()> {
     let mut handler = resp::RespHandler::new(stream);
-
-    loop{
-        let value = handler.read_value().await.unwrap();
-        // let response = if let Some(v) = value{
-        //     //TODO handle responses
-        // }else{
-        //     break;
-        // };
-
-        handler.write_value(value.unwrap()).await.unwrap();
-
+    println!("Hanling connnnnn");
+    loop {
+        let value = if let Some(v) = handler.read_value().await? {
+            //TODO COMMANDS, HANDLING RESPONSES
+            v
+        } else {
+            println!("Connection ended");
+            break;
+        };
+        handler.write_value(value).await?;
     }
     // let mut buffer = [0; 512];
     // loop {
@@ -55,4 +54,5 @@ async fn handle_conn(mut stream:TcpStream){
     //     }
     //     stream.write(format!("{:?}",buffer).as_bytes()).await.unwrap();
     // }
+    Ok(())
 }
