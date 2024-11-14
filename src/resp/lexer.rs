@@ -44,8 +44,7 @@ impl Lexer {
         match mess {
             b'+' => self.handle_simple_string(),
             b'$' => self.handle_bulk_string(),
-            //TODO rest
-            // b'*'=>self.handle_array(),
+            b'*' => self.handle_array(),
             _ => Err(anyhow::anyhow!("Not supported type {}",mess))
         }
     }
@@ -59,7 +58,8 @@ impl Lexer {
             result_string.push(self.consume()?.to_owned() as char);
             println!("{}", result_string);
         }
-        println!("buffer: {:?}", self.buffer);
+        self.skip_crlf()?;
+        println!("Where simple string ended: {}", self.peek());
         Ok(Value::SimpleString(result_string))
     }
 
@@ -73,9 +73,24 @@ impl Lexer {
             println!("{}", result_string);
         }
         self.skip_crlf()?;
+        println!("Where bulk string ended: {}", self.peek().to_ascii_lowercase());
         Ok(Value::BulkString(result_string))
     }
 
+    fn handle_array(&mut self) -> Result<Value> {
+        let mut result_vec: Vec<String> = Vec::new();
+        let arr_length: usize = self.consume_int()?;
+        println!("{}", arr_length);
+        self.skip_crlf()?;
+        for _ in 0..arr_length {
+            let consumed = self.consume()?;
+            result_vec.push(self.parse_message(&consumed)?.serialize());
+            println!("{:?}", result_vec);
+        }
+        println!("Where array ended: {}", self.peek().to_ascii_lowercase());
+
+        Ok(Value::Array(result_vec))
+    }
     fn consume_int(&mut self) -> Result<usize> {
         let mut res_string = String::new();
         loop {
@@ -103,7 +118,7 @@ impl Lexer {
     }
 
     fn skip_crlf(&mut self) -> Result<()> {
-        self.read_position += 1;
+        self.read_position += 4;
 
         if self.is_at_end() {
             return Err(anyhow!("Exceeded buffer len in skip crlf, read position bigger than buffer len"));
@@ -115,7 +130,7 @@ impl Lexer {
         // println!("checking crlf{}{}",self.read_position,self.read_position+1);
 
         // if self.buffer[self.read_position] == b'\r' && self.buffer[self.read_position + 1] == b'\n' {
-        if self.buffer[self.read_position] == b'\n' {
+        if self.buffer[self.read_position] == b'\\' && self.buffer[self.read_position + 1] == b'r' && self.buffer[self.read_position + 2] == b'\\' && self.buffer[self.read_position + 3] == b'n' {
             return Ok(true);
         }
         Ok(false)
