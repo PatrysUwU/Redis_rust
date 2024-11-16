@@ -5,11 +5,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use anyhow::Result;
 use lexer::Lexer;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     SimpleString(String),
     BulkString(String),
-    Array(Vec<String>),
+    Array(Vec<Value>),
 }
 
 impl Value {

@@ -58,8 +58,12 @@ impl Lexer {
             result_string.push(self.consume()?.to_owned() as char);
             println!("{}", result_string);
         }
-        self.skip_crlf()?;
-        println!("Where simple string ended: {}", self.peek());
+        self.skip_crlf();
+        if let Some(x) = self.peek() {
+            println!("Where Simple String ended: {}", x.to_ascii_lowercase());
+        } else {
+            println!("Simple string ended outside the buffer!")
+        }
         Ok(Value::SimpleString(result_string))
     }
 
@@ -67,27 +71,35 @@ impl Lexer {
         let mut result_string = String::new();
         let bulk_string_length: usize = self.consume_int()?;
         println!("{}", bulk_string_length);
-        self.skip_crlf()?;
+        self.skip_crlf();
         for _ in 0..bulk_string_length {
             result_string.push(self.consume()?.to_owned() as char);
             println!("{}", result_string);
         }
-        self.skip_crlf()?;
-        println!("Where bulk string ended: {}", self.peek().to_ascii_lowercase());
+        self.skip_crlf();
+        if let Some(x) = self.peek() {
+            println!("Where Bulk String ended: {}", x.to_ascii_lowercase());
+        } else {
+            println!("Bulk string ended outside the buffer!")
+        }
         Ok(Value::BulkString(result_string))
     }
 
     fn handle_array(&mut self) -> Result<Value> {
-        let mut result_vec: Vec<String> = Vec::new();
+        let mut result_vec: Vec<Value> = Vec::new();
         let arr_length: usize = self.consume_int()?;
         println!("{}", arr_length);
-        self.skip_crlf()?;
+        self.skip_crlf();
         for _ in 0..arr_length {
             let consumed = self.consume()?;
-            result_vec.push(self.parse_message(&consumed)?.serialize());
+            result_vec.push(self.parse_message(&consumed)?);
             println!("{:?}", result_vec);
         }
-        println!("Where array ended: {}", self.peek().to_ascii_lowercase());
+        if let Some(x) = self.peek() {
+            println!("Where array ended: {}", x.to_ascii_lowercase());
+        } else {
+            println!("Array ended outside the buffer!")
+        }
 
         Ok(Value::Array(result_vec))
     }
@@ -95,15 +107,23 @@ impl Lexer {
         let mut res_string = String::new();
         loop {
             res_string.push(self.consume()?.to_owned() as char);
-            if !self.peek().is_ascii_digit() {
+            if let Some(x) = self.peek() {
+                if !x.is_ascii_digit() {
+                    break;
+                }
+            } else {
                 break;
             }
         }
         return self.parse_int(res_string.as_ref());
     }
 
-    fn peek(&self) -> &u8 {
-        &self.buffer[self.read_position]
+    fn peek(&self) -> Option<&u8> {
+        if self.is_at_end() {
+            println!("End of buffer!");
+            return None;
+        }
+        Some(&self.buffer[self.read_position])
     }
     fn parse_int(&self, number: &[u8]) -> Result<usize> {
         Ok(String::from_utf8(number.to_vec())?.parse::<usize>()?)
@@ -117,20 +137,15 @@ impl Lexer {
         return Ok(temp.clone());
     }
 
-    fn skip_crlf(&mut self) -> Result<()> {
-        self.read_position += 4;
-
-        if self.is_at_end() {
-            return Err(anyhow!("Exceeded buffer len in skip crlf, read position bigger than buffer len"));
-        }
-        Ok(())
+    fn skip_crlf(&mut self) {
+        self.read_position += 2;
     }
 
     fn is_crlf_next(&self) -> Result<bool> {
         // println!("checking crlf{}{}",self.read_position,self.read_position+1);
 
-        // if self.buffer[self.read_position] == b'\r' && self.buffer[self.read_position + 1] == b'\n' {
-        if self.buffer[self.read_position] == b'\\' && self.buffer[self.read_position + 1] == b'r' && self.buffer[self.read_position + 2] == b'\\' && self.buffer[self.read_position + 3] == b'n' {
+        if self.buffer[self.read_position] == b'\r' && self.buffer[self.read_position + 1] == b'\n' {
+            // if self.buffer[self.read_position] == b'\\' && self.buffer[self.read_position + 1] == b'r' && self.buffer[self.read_position + 2] == b'\\' && self.buffer[self.read_position + 3] == b'n' {
             return Ok(true);
         }
         Ok(false)
