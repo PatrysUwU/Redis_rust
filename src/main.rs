@@ -38,36 +38,13 @@ async fn handle_conn(stream: TcpStream) -> Result<()> {
     println!("Hanling connnnnn");
     loop {
         let value = if let Some(v) = handler.read_value().await? {
-            //TODO COMMANDS, HANDLING RESPONSES
-            if let Value::Array(arr) = v {
-                let command = if let Some(Value::BulkString(comm)) = arr.iter().next() {
-                    comm.to_ascii_uppercase()
-                } else {
-                    panic!("Command must be a bulk string!");
-                };
-                let args: Vec<Value> = arr.to_vec();
-                match &command as &str {
-                    "PING" => {
-                        Value::SimpleString(String::from("PONG"))
-                    }
-                    _ => { Value::SimpleString(String::from("okokoko")) }
-                }
-            } else {
-                panic!("Commands have to be passed as arrays!");
-            }
+            v
         } else {
             println!("Connection ended");
             break;
         };
         handler.write_value(value).await?;
     }
-    // let mut buffer = [0; 512];
-    // loop {
-    //     let bytes_read = stream.read(&mut buffer).await.unwrap();
-    //     if bytes_read == 0 {
-    //         break;
-    //     }
-    //     stream.write(format!("{:?}",buffer).as_bytes()).await.unwrap();
-    // }
+
     Ok(())
 }

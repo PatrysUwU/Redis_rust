@@ -38,17 +38,46 @@ impl RespHandler {
     }
 
     pub async fn read_value(&mut self) -> Result<Option<Value>> {
-        Ok(self.lexer.read_value(&mut self.stream).await?)
-        // let bytes_read = self.stream.read_buf(&mut self.buffer).await?;
-        // if bytes_read == 0{
-        //     return Ok(None);
-        // }
-        // //TODO parsing
-        // return Ok(Some(Value::SimpleString(String::from("PONG"))));
+        if let Some(v) = self.lexer.read_value(&mut self.stream).await? {
+            //TODO COMMANDS, HANDLING RESPONSES
+            if let Value::Array(arr) = v {
+                let command = if let Some(Value::BulkString(comm)) = arr.iter().next() {
+                    comm.to_ascii_uppercase()
+                } else {
+                    panic!("Command must be a bulk string!");
+                };
+                let args: Vec<Value> = arr.into_iter().skip(1).collect();
+                match &command as &str {
+                    "PING" => {
+                        Ok(Some(Value::SimpleString(String::from("PONG"))))
+                    }
+                    "ECHO" => {
+                        Ok(Some(self.echo(args)))
+                    }
+                    _ => { Ok(Some(Value::SimpleString(String::from("okokoko")))) }
+                }
+            } else {
+                panic!("Commands have to be passed as arrays!");
+            }
+        } else {
+            Ok(None)
+        }
     }
+
 
     pub async fn write_value(&mut self, v: Value) -> Result<()> {
         self.stream.write(v.serialize().as_bytes()).await?;
         Ok(())
     }
+
+    fn echo(&self, args: Vec<Value>) -> Value {
+        let mut res = String::new();
+        for val in args {
+            for c in val.serialize().chars() {
+                res.push(c);
+            }
+        }
+        Value::SimpleString(res)
+    }
 }
+
