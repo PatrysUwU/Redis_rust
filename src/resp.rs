@@ -1,9 +1,10 @@
 mod lexer;
 
+use std::collections::HashMap;
 use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use lexer::Lexer;
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -34,6 +35,7 @@ impl Value {
 pub struct RespHandler {
     stream: TcpStream,
     lexer: Lexer,
+    storage: HashMap<String, Value>,
 }
 
 impl RespHandler {
@@ -41,6 +43,7 @@ impl RespHandler {
         RespHandler {
             stream,
             lexer: Lexer::new(),
+            storage: HashMap::new(),
         }
     }
 
@@ -62,7 +65,14 @@ impl RespHandler {
                     "ECHO" => {
                         Ok(Some(self.echo(args)?))
                     }
-                    _ => { Ok(Some(Value::SimpleString(String::from("okokoko")))) }
+                    "SET" => {
+                        self.set(args)?;
+                        Ok(Some(Value::SimpleString(String::from("OK"))))
+                    }
+                    "GET" => {
+                        self.get(args)
+                    }
+                    _ => { Ok(Some(Value::SimpleString(String::from("cos nie tak kolego")))) }
                 }
             } else {
                 panic!("Commands have to be passed as arrays!");
@@ -85,6 +95,23 @@ impl RespHandler {
             Ok(Value::BulkString(s.clone()))
         } else {
             Err(anyhow::anyhow!("No arguments provided to echo!"))
+        }
+    }
+
+    fn set(&mut self, args: Vec<Value>) -> Result<()> {
+        if let Value::BulkString(x) = &args[0] {
+            self.storage.insert(x.to_string(), args[1].clone());
+            Ok(())
+        } else {
+            Err(anyhow!("Passed nonbulkstring to set"))
+        }
+    }
+
+    fn get(&self, args: Vec<Value>) -> Result<Option<Value>> {
+        if let Value::BulkString(x) = &args[0] {
+            Ok(self.storage.get(x).cloned())
+        } else {
+            Err(anyhow!("Passed nonbulkstring to get"))
         }
     }
 }
