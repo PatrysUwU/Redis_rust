@@ -23,6 +23,13 @@ impl Value {
             _ => panic!("Unsupported value to serialize!")
         }
     }
+    fn tostring(&self) -> String {
+        match self {
+            Value::SimpleString(x) => { x.to_string() }
+            Value::BulkString(x) => { x.to_string() }
+            Value::Array(x) => { panic!("fsdfasfsda") }
+        }
+    }
 }
 pub struct RespHandler {
     stream: TcpStream,
@@ -47,12 +54,13 @@ impl RespHandler {
                     panic!("Command must be a bulk string!");
                 };
                 let args: Vec<Value> = arr.into_iter().skip(1).collect();
+                println!("{:?}", args);
                 match &command as &str {
                     "PING" => {
                         Ok(Some(Value::SimpleString(String::from("PONG"))))
                     }
                     "ECHO" => {
-                        Ok(Some(self.echo(args)))
+                        Ok(Some(self.echo(args)?))
                     }
                     _ => { Ok(Some(Value::SimpleString(String::from("okokoko")))) }
                 }
@@ -67,17 +75,17 @@ impl RespHandler {
 
     pub async fn write_value(&mut self, v: Value) -> Result<()> {
         self.stream.write(v.serialize().as_bytes()).await?;
+        // println!("{}", v.tostring());
+        // self.stream.write(v.tostring().as_bytes()).await?;
         Ok(())
     }
 
-    fn echo(&self, args: Vec<Value>) -> Value {
-        let mut res = String::new();
-        for val in args {
-            for c in val.serialize().chars() {
-                res.push(c);
-            }
+    fn echo(&self, args: Vec<Value>) -> Result<Value> {
+        if let Value::BulkString(s) = &args[0] {
+            Ok(Value::BulkString(s.clone()))
+        } else {
+            Err(anyhow::anyhow!("No arguments provided to echo!"))
         }
-        Value::SimpleString(res)
     }
 }
 
