@@ -170,10 +170,10 @@ impl RespHandler {
                                 let x = x.as_ref();
                                 match x {
                                     "DIR" => {
-                                        Ok(Value::BulkString(dir))
+                                        Ok(Value::Array(Vec::from([Value::BulkString("dir".to_string()), Value::BulkString(dir)])))
                                     }
                                     "DBFILENAME" => {
-                                        Ok(Value::BulkString(dbfilename))
+                                        Ok(Value::Array(Vec::from([Value::BulkString("dbfilename".to_string()), Value::BulkString(dbfilename)])))
                                     }
                                     _ => Err(anyhow!("Wrong argument in get (dbfilename,dir)"))
                                 }
