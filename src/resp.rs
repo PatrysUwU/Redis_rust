@@ -2,6 +2,7 @@ mod lexer;
 
 use std::collections::HashMap;
 use std::num::ParseIntError;
+use std::ops::Add;
 use std::time::Duration;
 use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -9,6 +10,8 @@ use tokio::net::TcpStream;
 use anyhow::{anyhow, Result};
 use tokio::time::Instant;
 use lexer::Lexer;
+
+
 #[derive(Debug, Clone)]
 pub enum Value {
     SimpleString(String),
@@ -23,7 +26,11 @@ impl Value {
             Value::SimpleString(s) => { format!("+{}\r\n", s) }
             Value::BulkString(s) => { format!("${}\r\n{}\r\n", s.len(), s) }
             Value::Array(s) => {
-                format!("arejek {:?}", s)
+                let mut res = String::from(format!("*{}\r\n", s.len()));
+                for val in s.iter() {
+                    res.push_str(val.serialize().as_str());
+                };
+                res
             }
             Value::NullBulkString => { "$-1\r\n".to_string() }
             _ => panic!("Unsupported value to serialize!")
@@ -92,7 +99,6 @@ impl RespHandler {
 
     pub async fn read_value(&mut self) -> Result<Option<Value>> {
         if let Some(v) = self.lexer.read_value(&mut self.stream).await? {
-            //TODO COMMANDS, HANDLING RESPONSES
             if let Value::Array(arr) = v {
                 let command = if let Some(Value::BulkString(comm)) = arr.iter().next() {
                     comm.to_ascii_uppercase()
@@ -127,6 +133,16 @@ impl RespHandler {
                             }
                         }
                     }
+                    "CONFIG" => {
+                        match self.config(args) {
+                            Ok(x) => {
+                                Ok(Some(x))
+                            }
+                            Err(e) => {
+                                Ok(Some(Value::SimpleString(String::from(format!("{}", e)))))
+                            }
+                        }
+                    }
                     _ => { Ok(Some(Value::SimpleString(String::from("cos nie tak kolego")))) }
                 }
             } else {
@@ -137,7 +153,39 @@ impl RespHandler {
         }
     }
 
-
+    fn config(&mut self, args: Vec<Value>) -> Result<Value> {
+        let dbfilename = String::from("/tmp/redis-data");
+        let dir = String::from("dump.rdb");
+        if args.get(0).is_none() {
+            Err(anyhow!("Not enough arguments in config"))
+        } else {
+            if let Value::BulkString(x) = &args[0] {
+                let args = self.extract_arguments(&args);
+                match args {
+                    None => { Err(anyhow!("Didn't pass args to config")) }
+                    Some(args) => {
+                        match args.get("GET") {
+                            None => { Err(anyhow!("No value for get")) }
+                            Some(x) => {
+                                let x = x.as_ref();
+                                match x {
+                                    "DIR" => {
+                                        Ok(Value::BulkString(dir))
+                                    }
+                                    "DBFILENAME" => {
+                                        Ok(Value::BulkString(dbfilename))
+                                    }
+                                    _ => Err(anyhow!("Wrong argument in get (dbfilename,dir)"))
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Err(anyhow!("Config argument not passed as bulkstring"))
+            }
+        }
+    }
     pub async fn write_value(&mut self, v: Value) -> Result<()> {
         self.stream.write(v.serialize().as_bytes()).await?;
         Ok(())
