@@ -7,7 +7,7 @@ This is a simple clone of the Redis database written in Rust that supports basic
 
 The application supports the following Redis commands:
 
-- `SET <key> <value>`: Sets the value for the specified key.
+- `SET <key> <value> [PX <seconds>]`: Sets the value for the specified key. You can optionally set an expiration time for the key with the `PX` option, which specifies the number of seconds after which the key will expire.
 - `GET <key>`: Retrieves the value associated with the given key.
 - `ECHO <message>`: Returns the provided message.
 - `PING`: Returns a `PONG` response to check if the server is running.
